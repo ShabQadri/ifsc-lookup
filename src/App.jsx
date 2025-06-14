@@ -1,28 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Select, { components } from "react-select";
 import "bootstrap/dist/css/bootstrap.min.css";
 
-// Use your Cloudflare Worker proxy URL directly here
+// Cloudflare Worker proxy URL
 const API_BASE = "https://ifsc-proxy.ifsc-proxy.workers.dev/api";
 
-// --- Visitor Counter: Only increase once per browser session ---
-function useMonthlyVisitorCounter() {
-  const [visitorCount, setVisitorCount] = useState(0);
-  useEffect(() => {
-    const now = new Date();
-    const key = `visitorcount-${now.getFullYear()}-${now.getMonth() + 1}`;
-    const sessionKey = `visitorcounted-${key}`;
-    let count = parseInt(localStorage.getItem(key) || "0", 10);
-    // Only increment if not already counted this session
-    if (!sessionStorage.getItem(sessionKey)) {
-      count++;
-      localStorage.setItem(key, count);
-      sessionStorage.setItem(sessionKey, "1");
-    }
-    setVisitorCount(count);
-  }, []);
-  return visitorCount;
-}
+// Detect mobile device
+const isMobile = typeof navigator !== "undefined" &&
+  /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 // Custom MenuList for Bank Dropdown
 const BankMenuList = (props) => (
@@ -42,8 +27,62 @@ const BankMenuList = (props) => (
   </>
 );
 
+// Custom Control to handle mobile search focus
+const CustomControl = (props) => {
+  const inputRef = useRef(null);
+
+  // Only on mobile: open menu without focusing input, focus only on tap/click in control
+  useEffect(() => {
+    if (isMobile && props.menuIsOpen && props.isFocused && !props.selectProps.mobileInputManuallyFocused) {
+      // Remove focus from input when menu opens
+      if (inputRef.current) inputRef.current.blur();
+    }
+  }, [props.menuIsOpen, props.isFocused, props.selectProps.mobileInputManuallyFocused]);
+
+  return (
+    <components.Control
+      {...props}
+      innerProps={{
+        ...props.innerProps,
+        onMouseDown: (e) => {
+          if (isMobile && !props.selectProps.mobileInputManuallyFocused) {
+            // Open menu without focusing input
+            props.selectProps.setMobileInputManuallyFocused(false);
+          }
+          if (props.innerProps.onMouseDown) props.innerProps.onMouseDown(e);
+        },
+        onClick: (e) => {
+          if (isMobile && !props.selectProps.mobileInputManuallyFocused) {
+            props.selectProps.setMobileInputManuallyFocused(false);
+          }
+          if (props.innerProps.onClick) props.innerProps.onClick(e);
+        }
+      }}
+    >
+      {props.children}
+      {/* Invisible input to handle focus */}
+      {isMobile && (
+        <input
+          ref={inputRef}
+          style={{
+            position: "absolute",
+            left: "-9999px",
+            width: 1,
+            height: 1,
+            opacity: 0,
+            pointerEvents: "none"
+          }}
+          readOnly
+          tabIndex={-1}
+        />
+      )}
+    </components.Control>
+  );
+};
+
 function App() {
-  const visitorCount = useMonthlyVisitorCounter();
+  // Dropdown state for mobile search focus
+  const [mobileInputManuallyFocused, setMobileInputManuallyFocused] = useState(false);
 
   const [banks, setBanks] = useState([]);
   const [states, setStates] = useState([]);
@@ -56,7 +95,7 @@ function App() {
   const [selectedBranch, setSelectedBranch] = useState(null);
 
   const [ifscInput, setIfscInput] = useState("");
-  const [searchMode, setSearchMode] = useState("dropdown"); // Default: location search
+  const [searchMode, setSearchMode] = useState("dropdown");
   const [ifscDetails, setIfscDetails] = useState(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -303,7 +342,6 @@ function App() {
       { icon: "🌐", label: "SWIFT", value: details.SWIFT }
     ];
 
-    // Balance columns
     while (left.length < right.length) left.push({ icon: "", label: "", value: "" });
     while (right.length < left.length) right.push({ icon: "", label: "", value: "" });
 
@@ -320,11 +358,25 @@ function App() {
     );
   }
 
+  // --- JSX ---
   return (
     <div style={{ minHeight: "100vh", width: "100vw", background: "linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%)" }}>
       <div style={{ maxWidth: 700, margin: "0 auto", padding: "32px 12px" }}>
         <div className="text-center mb-4">
-          <img src="https://img.icons8.com/ios-filled/50/000000/bank-building.png" alt="Bank" style={{ width: 50, marginBottom: 10 }} />
+          {/* Indian Bank SVG with Rupee Symbol */}
+          <span style={{ display: "inline-block", marginBottom: 10 }}>
+            <svg width="50" height="50" viewBox="0 0 48 48" fill="none">
+              <rect width="48" height="48" rx="12" fill="#f0f4fa" />
+              {/* Bank building */}
+              <rect x="12" y="22" width="24" height="14" rx="2" fill="#1976d2" />
+              <rect x="18" y="28" width="4" height="8" fill="#fff" />
+              <rect x="26" y="28" width="4" height="8" fill="#fff" />
+              {/* Roof */}
+              <polygon points="24,12 10,22 38,22" fill="#338fbd" />
+              {/* Rupee symbol */}
+              <text x="24" y="32" textAnchor="middle" fontWeight="bold" fontSize="15" fill="#fff" fontFamily="Arial, sans-serif">₹</text>
+            </svg>
+          </span>
           <h2 className="fw-bold">IFSC Code Lookup</h2>
           <div className="text-secondary" style={{ maxWidth: 400, margin: "0 auto" }}>
             Find Indian Financial System Codes for banks across India. Search by bank, state, district, branch, or IFSC code.
@@ -366,7 +418,7 @@ function App() {
             <button
               type="submit"
               style={{
-                background: "#7cc7fa",
+                background: "#338fbd",
                 color: "#fff",
                 border: "none",
                 borderRadius: "0.375rem",
@@ -397,7 +449,7 @@ function App() {
                   onChange={setSelectedBank}
                   placeholder="Type to search..."
                   isSearchable
-                  components={{ MenuList: BankMenuList }}
+                  components={{ MenuList: BankMenuList, Control: CustomControl }}
                   menuPlacement="auto"
                   styles={{
                     menu: (provided) => ({
@@ -409,6 +461,8 @@ function App() {
                       fontWeight: 500,
                     }),
                   }}
+                  mobileInputManuallyFocused={mobileInputManuallyFocused}
+                  setMobileInputManuallyFocused={setMobileInputManuallyFocused}
                 />
               </div>
               <div className="col-md-6">
@@ -420,6 +474,9 @@ function App() {
                   placeholder="Select State"
                   isSearchable
                   isDisabled={!selectedBank}
+                  components={{ Control: CustomControl }}
+                  mobileInputManuallyFocused={mobileInputManuallyFocused}
+                  setMobileInputManuallyFocused={setMobileInputManuallyFocused}
                 />
               </div>
               <div className="col-md-6">
@@ -431,6 +488,9 @@ function App() {
                   placeholder="Select District"
                   isSearchable
                   isDisabled={!selectedState}
+                  components={{ Control: CustomControl }}
+                  mobileInputManuallyFocused={mobileInputManuallyFocused}
+                  setMobileInputManuallyFocused={setMobileInputManuallyFocused}
                 />
               </div>
               <div className="col-md-6">
@@ -442,6 +502,9 @@ function App() {
                   placeholder="Select Branch"
                   isSearchable
                   isDisabled={!selectedDistrict}
+                  components={{ Control: CustomControl }}
+                  mobileInputManuallyFocused={mobileInputManuallyFocused}
+                  setMobileInputManuallyFocused={setMobileInputManuallyFocused}
                 />
               </div>
             </div>
@@ -457,7 +520,7 @@ function App() {
                   loading
                 }
                 style={{
-                  backgroundColor: "#7cc7fa",
+                  backgroundColor: "#338fbd",
                   color: "#fff",
                   border: "none",
                   borderRadius: "0.375rem",
@@ -473,7 +536,7 @@ function App() {
                 type="button"
                 className="flex-fill"
                 style={{
-                  backgroundColor: "#77e6b6",
+                  backgroundColor: "#219575",
                   color: "#fff",
                   border: "none",
                   borderRadius: "0.375rem",
@@ -550,25 +613,6 @@ function App() {
           </div>
         )}
 
-        {/* VISITOR COUNTER (fixed bottom right) */}
-        <div style={{
-          position: "fixed",
-          right: 12,
-          bottom: 8,
-          padding: "3px 8px",
-          borderRadius: 7,
-          background: "rgba(0,0,0,0.18)",
-          color: "#444",
-          fontSize: 13,
-          zIndex: 100,
-          letterSpacing: 1,
-          opacity: 0.7,
-          fontFamily: "monospace"
-        }}>
-          Visits this month: <b>{visitorCount}</b>
-        </div>
-
-        {/* CSS for details card */}
         <style>{`
           .ifsc-details-card {
             width: 100%;
