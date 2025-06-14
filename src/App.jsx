@@ -27,63 +27,12 @@ const BankMenuList = (props) => (
   </>
 );
 
-// Custom Control to handle mobile search focus
-const CustomControl = (props) => {
-  const inputRef = useRef(null);
-
-  // Only on mobile: open menu without focusing input, focus only on tap/click in control
-  useEffect(() => {
-    if (isMobile && props.menuIsOpen && props.isFocused && !props.selectProps.mobileInputManuallyFocused) {
-      // Remove focus from input when menu opens
-      if (inputRef.current) inputRef.current.blur();
-    }
-  }, [props.menuIsOpen, props.isFocused, props.selectProps.mobileInputManuallyFocused]);
-
-  return (
-    <components.Control
-      {...props}
-      innerProps={{
-        ...props.innerProps,
-        onMouseDown: (e) => {
-          if (isMobile && !props.selectProps.mobileInputManuallyFocused) {
-            // Open menu without focusing input
-            props.selectProps.setMobileInputManuallyFocused(false);
-          }
-          if (props.innerProps.onMouseDown) props.innerProps.onMouseDown(e);
-        },
-        onClick: (e) => {
-          if (isMobile && !props.selectProps.mobileInputManuallyFocused) {
-            props.selectProps.setMobileInputManuallyFocused(false);
-          }
-          if (props.innerProps.onClick) props.innerProps.onClick(e);
-        }
-      }}
-    >
-      {props.children}
-      {/* Invisible input to handle focus */}
-      {isMobile && (
-        <input
-          ref={inputRef}
-          style={{
-            position: "absolute",
-            left: "-9999px",
-            width: 1,
-            height: 1,
-            opacity: 0,
-            pointerEvents: "none"
-          }}
-          readOnly
-          tabIndex={-1}
-        />
-      )}
-    </components.Control>
-  );
-};
+// Custom Control for react-select (for future extensibility)
+const CustomControl = (props) => (
+  <components.Control {...props}>{props.children}</components.Control>
+);
 
 function App() {
-  // Dropdown state for mobile search focus
-  const [mobileInputManuallyFocused, setMobileInputManuallyFocused] = useState(false);
-
   const [banks, setBanks] = useState([]);
   const [states, setStates] = useState([]);
   const [districts, setDistricts] = useState([]);
@@ -448,7 +397,7 @@ function App() {
                   value={selectedBank}
                   onChange={setSelectedBank}
                   placeholder="Type to search..."
-                  isSearchable
+                  isSearchable={true}
                   components={{ MenuList: BankMenuList, Control: CustomControl }}
                   menuPlacement="auto"
                   styles={{
@@ -461,8 +410,6 @@ function App() {
                       fontWeight: 500,
                     }),
                   }}
-                  mobileInputManuallyFocused={mobileInputManuallyFocused}
-                  setMobileInputManuallyFocused={setMobileInputManuallyFocused}
                 />
               </div>
               <div className="col-md-6">
@@ -472,11 +419,9 @@ function App() {
                   value={selectedState}
                   onChange={setSelectedState}
                   placeholder="Select State"
-                  isSearchable
+                  isSearchable={!isMobile}
                   isDisabled={!selectedBank}
                   components={{ Control: CustomControl }}
-                  mobileInputManuallyFocused={mobileInputManuallyFocused}
-                  setMobileInputManuallyFocused={setMobileInputManuallyFocused}
                 />
               </div>
               <div className="col-md-6">
@@ -486,11 +431,9 @@ function App() {
                   value={selectedDistrict}
                   onChange={setSelectedDistrict}
                   placeholder="Select District"
-                  isSearchable
+                  isSearchable={!isMobile}
                   isDisabled={!selectedState}
                   components={{ Control: CustomControl }}
-                  mobileInputManuallyFocused={mobileInputManuallyFocused}
-                  setMobileInputManuallyFocused={setMobileInputManuallyFocused}
                 />
               </div>
               <div className="col-md-6">
@@ -500,11 +443,9 @@ function App() {
                   value={selectedBranch}
                   onChange={setSelectedBranch}
                   placeholder="Select Branch"
-                  isSearchable
+                  isSearchable={!isMobile}
                   isDisabled={!selectedDistrict}
                   components={{ Control: CustomControl }}
-                  mobileInputManuallyFocused={mobileInputManuallyFocused}
-                  setMobileInputManuallyFocused={setMobileInputManuallyFocused}
                 />
               </div>
             </div>
