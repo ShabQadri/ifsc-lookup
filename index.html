@@ -4,9 +4,58 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+
+    <!-- SEO Improvements -->
+    <title>IFSC Code Lookup - Indian Bank Branch Finder</title>
+    <meta name="description" content="Find IFSC codes, MICR, branch details for all Indian banks. Search by bank, state, district, branch or IFSC code. Fast, mobile-friendly, and secure.">
+
+    <!-- Preconnect to API for faster dropdown load -->
+    <link rel="preconnect" href="https://ifsc-proxy.ifsc-proxy.workers.dev" crossorigin />
+
+    <!-- Social sharing / Open Graph -->
+    <meta property="og:title" content="IFSC Code Lookup - Indian Bank Branch Finder" />
+    <meta property="og:description" content="Find IFSC codes, MICR, branch details for all Indian banks. Search by bank, state, district, branch or IFSC code." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://ifsc-lookup.shabqadri.com/" />
+    <meta property="og:image" content="/vite.svg" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="IFSC Code Lookup - Indian Bank Branch Finder" />
+    <meta name="twitter:description" content="Find IFSC codes, MICR, branch details for all Indian banks. Search by bank, state, district, branch or IFSC code." />
+    <meta name="twitter:image" content="/vite.svg" />
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://ifsc-lookup.shabqadri.com/" />
+
+    <!-- Accessibility improvement: skip to content -->
+    <style>
+      .skip-link {
+        position: absolute;
+        left: -999px;
+        top: auto;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        z-index: 100;
+        background: #fff;
+        color: #1976d2;
+        border-radius: 4px;
+        padding: 8px 16px;
+        font-weight: bold;
+      }
+      .skip-link:focus {
+        left: 16px;
+        top: 16px;
+        width: auto;
+        height: auto;
+        outline: 2px solid #1976d2;
+        box-shadow: 0 2px 8px #1976d2;
+      }
+    </style>
   </head>
   <body>
+    <a href="#root" class="skip-link">Skip to main content</a>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

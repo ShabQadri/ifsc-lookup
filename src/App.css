@@ -40,3 +40,49 @@
 .read-the-docs {
   color: #888;
 }
+
+/* === Accessibility & Performance improvements === */
+
+/* Ensure clear focus outlines for all interactive controls */
+button:focus,
+input:focus,
+select:focus,
+.react-select__control--is-focused {
+  outline: 2px solid #1976d2 !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px #b3e5fc;
+}
+
+/* Larger font for readability */
+body {
+  font-size: 18px;
+  line-height: 1.6;
+  background: #f8fafc;
+  color: #232323;
+}
+
+/* Improve contrast for buttons */
+.btn,
+button {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Utility: visually hidden (for accessibility labels) */
+.visually-hidden { 
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}
+
+/* Responsive root padding for small screens */
+@media (max-width: 700px) {
+  #root {
+    padding: 0.5rem;
+  }
+}
