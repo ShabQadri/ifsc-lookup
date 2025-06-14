@@ -4,10 +4,14 @@ import "bootstrap/dist/css/bootstrap.min.css";
 
 // Cloudflare Worker proxy URL
 const API_BASE = "https://ifsc-proxy.ifsc-proxy.workers.dev/api";
-
-// Detect mobile device
 const isMobile = typeof navigator !== "undefined" &&
   /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+// === 1. CLIENT SIDE CACHES ===
+const bankCache = {};
+const stateCache = {};
+const districtCache = {};
+const branchCache = {};
 
 // Custom MenuList for Bank Dropdown
 const BankMenuList = (props) => (
@@ -27,7 +31,6 @@ const BankMenuList = (props) => (
   </>
 );
 
-// Custom Control for react-select (for future extensibility)
 const CustomControl = (props) => (
   <components.Control {...props}>{props.children}</components.Control>
 );
@@ -49,13 +52,23 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // === 2. BANKS ===
   useEffect(() => {
+    if (bankCache.list) {
+      setBanks(bankCache.list);
+      return;
+    }
     fetch(`${API_BASE}/banks`)
-      .then((res) => res.json())
-      .then((data) => setBanks(data.map((b) => ({ label: b, value: b }))))
+      .then(res => res.json())
+      .then(data => {
+        const bankList = data.map((b) => ({ label: b, value: b }));
+        setBanks(bankList);
+        bankCache.list = bankList;
+      })
       .catch(() => setBanks([]));
   }, []);
 
+  // === 3. STATES ===
   useEffect(() => {
     setStates([]);
     setSelectedState(null);
@@ -65,17 +78,23 @@ function App() {
     setSelectedBranch(null);
 
     if (selectedBank) {
-      fetch(
-        `${API_BASE}/states?bank=${encodeURIComponent(selectedBank.value)}`
-      )
-        .then((res) => res.json())
-        .then((data) =>
-          setStates(data.map((s) => ({ label: s, value: s })))
-        )
+      const key = selectedBank.value;
+      if (stateCache[key]) {
+        setStates(stateCache[key]);
+        return;
+      }
+      fetch(`${API_BASE}/states?bank=${encodeURIComponent(key)}`)
+        .then(res => res.json())
+        .then(data => {
+          const statesList = data.map((s) => ({ label: s, value: s }));
+          setStates(statesList);
+          stateCache[key] = statesList;
+        })
         .catch(() => setStates([]));
     }
   }, [selectedBank]);
 
+  // === 4. DISTRICTS ===
   useEffect(() => {
     setDistricts([]);
     setSelectedDistrict(null);
@@ -83,45 +102,48 @@ function App() {
     setSelectedBranch(null);
 
     if (selectedBank && selectedState) {
-      fetch(
-        `${API_BASE}/cities?bank=${encodeURIComponent(
-          selectedBank.value
-        )}&state=${encodeURIComponent(selectedState.value)}`
-      )
-        .then((res) => res.json())
-        .then((data) =>
-          setDistricts(data.map((d) => ({ label: d, value: d })))
-        )
+      const key = `${selectedBank.value}|${selectedState.value}`;
+      if (districtCache[key]) {
+        setDistricts(districtCache[key]);
+        return;
+      }
+      fetch(`${API_BASE}/cities?bank=${encodeURIComponent(selectedBank.value)}&state=${encodeURIComponent(selectedState.value)}`)
+        .then(res => res.json())
+        .then(data => {
+          const distList = data.map((d) => ({ label: d, value: d }));
+          setDistricts(distList);
+          districtCache[key] = distList;
+        })
         .catch(() => setDistricts([]));
     }
   }, [selectedState, selectedBank]);
 
+  // === 5. BRANCHES ===
   useEffect(() => {
     setBranches([]);
     setSelectedBranch(null);
 
     if (selectedBank && selectedState && selectedDistrict) {
-      fetch(
-        `${API_BASE}/branches?bank=${encodeURIComponent(
-          selectedBank.value
-        )}&state=${encodeURIComponent(
-          selectedState.value
-        )}&city=${encodeURIComponent(selectedDistrict.value)}`
-      )
-        .then((res) => res.json())
-        .then((data) =>
-          setBranches(
-            data.map((b) => ({
-              label: b.BRANCH,
-              value: b.IFSC,
-            }))
-          )
-        )
+      const key = `${selectedBank.value}|${selectedState.value}|${selectedDistrict.value}`;
+      if (branchCache[key]) {
+        setBranches(branchCache[key]);
+        return;
+      }
+      fetch(`${API_BASE}/branches?bank=${encodeURIComponent(selectedBank.value)}&state=${encodeURIComponent(selectedState.value)}&city=${encodeURIComponent(selectedDistrict.value)}`)
+        .then(res => res.json())
+        .then(data => {
+          const branchList = data.map((b) => ({
+            label: b.BRANCH,
+            value: b.IFSC,
+          }));
+          setBranches(branchList);
+          branchCache[key] = branchList;
+        })
         .catch(() => setBranches([]));
     }
   }, [selectedDistrict, selectedBank, selectedState]);
 
-  // Search by IFSC code input
+  // === 6. IFSC SEARCH ===
   const handleIfscSearch = async (e) => {
     e.preventDefault();
     if (!ifscInput.trim()) return;
@@ -142,15 +164,10 @@ function App() {
     setCopied(false);
   };
 
-  // Search by dropdowns
+  // === 7. DROPDOWN SEARCH ===
   const handleDropdownSearch = async (e) => {
     e.preventDefault();
-    if (
-      selectedBank &&
-      selectedState &&
-      selectedDistrict &&
-      selectedBranch
-    ) {
+    if (selectedBank && selectedState && selectedDistrict && selectedBranch) {
       setLoading(true);
       setIfscDetails(null);
       setIfscInput("");
@@ -168,6 +185,7 @@ function App() {
     }
   };
 
+  // === 8. RESET ===
   const handleReset = () => {
     setSelectedBank(null);
     setSelectedState(null);
@@ -181,6 +199,7 @@ function App() {
     setIfscInput("");
   };
 
+  // === 9. COPY ===
   const handleCopy = () => {
     if (ifscDetails?.IFSC) {
       navigator.clipboard.writeText(ifscDetails.IFSC);
@@ -189,6 +208,19 @@ function App() {
     }
   };
 
+  // === 10. ACCESSIBILITY/SEO: id for each select ===
+  const idBank = "bank-select";
+  const idState = "state-select";
+  const idDistrict = "district-select";
+  const idBranch = "branch-select";
+  const idIfsc = "ifsc-code-input";
+
+  // === 11. LOADING SKELETON for dropdowns ===
+  const LoadingOption = () => (
+    <div style={{ padding: "8px", color: "#888" }}>Loading...</div>
+  );
+
+  // === 12. UI COMPONENTS ===
   const InfoRow = ({ icon, label, value }) => (
     <div
       style={{
@@ -307,7 +339,7 @@ function App() {
     );
   }
 
-  // --- JSX ---
+  // ============== JSX ==============
   return (
     <div style={{ minHeight: "100vh", width: "100vw", background: "linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%)" }}>
       <div style={{ maxWidth: 700, margin: "0 auto", padding: "32px 12px" }}>
@@ -316,17 +348,14 @@ function App() {
           <span style={{ display: "inline-block", marginBottom: 10 }}>
             <svg width="50" height="50" viewBox="0 0 48 48" fill="none">
               <rect width="48" height="48" rx="12" fill="#f0f4fa" />
-              {/* Bank building */}
               <rect x="12" y="22" width="24" height="14" rx="2" fill="#1976d2" />
               <rect x="18" y="28" width="4" height="8" fill="#fff" />
               <rect x="26" y="28" width="4" height="8" fill="#fff" />
-              {/* Roof */}
               <polygon points="24,12 10,22 38,22" fill="#338fbd" />
-              {/* Rupee symbol */}
               <text x="24" y="32" textAnchor="middle" fontWeight="bold" fontSize="15" fill="#fff" fontFamily="Arial, sans-serif">₹</text>
             </svg>
           </span>
-          <h2 className="fw-bold">IFSC Code Lookup</h2>
+          <h1 className="fw-bold" style={{fontSize: "2.1rem"}}>IFSC Code Lookup</h1>
           <div className="text-secondary" style={{ maxWidth: 400, margin: "0 auto" }}>
             Find Indian Financial System Codes for banks across India. Search by bank, state, district, branch, or IFSC code.
           </div>
@@ -355,7 +384,9 @@ function App() {
         {/* --- IFSC SEARCH BOX --- */}
         {searchMode === "ifsc" && (
           <form onSubmit={handleIfscSearch} style={{ marginBottom: 30, display: "flex", gap: 12, alignItems: "center", maxWidth: 440, marginLeft: "auto", marginRight: "auto" }}>
+            <label htmlFor={idIfsc} className="visually-hidden">Enter IFSC code</label>
             <input
+              id={idIfsc}
               className="form-control"
               style={{ fontWeight: 500 }}
               type="text"
@@ -363,6 +394,8 @@ function App() {
               value={ifscInput}
               onChange={e => setIfscInput(e.target.value.toUpperCase())}
               maxLength={20}
+              autoComplete="off"
+              required
             />
             <button
               type="submit"
@@ -376,6 +409,7 @@ function App() {
                 boxShadow: "0 2px 8px #e3f2fd80"
               }}
               disabled={!ifscInput.trim() || loading}
+              aria-label="Search IFSC code"
             >
               Search
             </button>
@@ -388,17 +422,19 @@ function App() {
             className="bg-white p-4 rounded shadow"
             style={{ minWidth: 350, maxWidth: 600, width: "100%", margin: "0 auto" }}
             onSubmit={handleDropdownSearch}
+            aria-label="Search IFSC by location"
           >
             <div className="row g-3 mb-3">
               <div className="col-md-6">
-                <label>Bank Name</label>
+                <label htmlFor={idBank}>Bank Name</label>
                 <Select
+                  inputId={idBank}
                   options={banks}
                   value={selectedBank}
                   onChange={setSelectedBank}
                   placeholder="Type to search..."
                   isSearchable={true}
-                  components={{ MenuList: BankMenuList, Control: CustomControl }}
+                  components={{ MenuList: BankMenuList, Control: CustomControl, LoadingMessage: LoadingOption }}
                   menuPlacement="auto"
                   styles={{
                     menu: (provided) => ({
@@ -410,42 +446,53 @@ function App() {
                       fontWeight: 500,
                     }),
                   }}
+                  isLoading={banks.length === 0}
+                  aria-label="Bank Name"
                 />
               </div>
               <div className="col-md-6">
-                <label>State</label>
+                <label htmlFor={idState}>State</label>
                 <Select
+                  inputId={idState}
                   options={states}
                   value={selectedState}
                   onChange={setSelectedState}
                   placeholder="Select State"
                   isSearchable={!isMobile}
                   isDisabled={!selectedBank}
-                  components={{ Control: CustomControl }}
+                  components={{ Control: CustomControl, LoadingMessage: LoadingOption }}
+                  isLoading={selectedBank && states.length === 0}
+                  aria-label="State"
                 />
               </div>
               <div className="col-md-6">
-                <label>District</label>
+                <label htmlFor={idDistrict}>District</label>
                 <Select
+                  inputId={idDistrict}
                   options={districts}
                   value={selectedDistrict}
                   onChange={setSelectedDistrict}
                   placeholder="Select District"
                   isSearchable={!isMobile}
                   isDisabled={!selectedState}
-                  components={{ Control: CustomControl }}
+                  components={{ Control: CustomControl, LoadingMessage: LoadingOption }}
+                  isLoading={selectedState && districts.length === 0}
+                  aria-label="District"
                 />
               </div>
               <div className="col-md-6">
-                <label>Branch</label>
+                <label htmlFor={idBranch}>Branch</label>
                 <Select
+                  inputId={idBranch}
                   options={branches}
                   value={selectedBranch}
                   onChange={setSelectedBranch}
                   placeholder="Select Branch"
                   isSearchable={!isMobile}
                   isDisabled={!selectedDistrict}
-                  components={{ Control: CustomControl }}
+                  components={{ Control: CustomControl, LoadingMessage: LoadingOption }}
+                  isLoading={selectedDistrict && branches.length === 0}
+                  aria-label="Branch"
                 />
               </div>
             </div>
@@ -470,6 +517,7 @@ function App() {
                   padding: "0.375rem 0.75rem",
                   boxShadow: "0 2px 8px #e3f2fd80"
                 }}
+                aria-label="Find IFSC Code"
               >
                 {loading ? "Searching..." : "🔍 Find IFSC Code"}
               </button>
@@ -486,6 +534,7 @@ function App() {
                   padding: "0.375rem 0.75rem",
                 }}
                 onClick={handleReset}
+                aria-label="Reset"
               >
                 Reset
               </button>
@@ -508,6 +557,7 @@ function App() {
               boxSizing: "border-box",
               overflow: "hidden"
             }}
+            aria-live="polite"
           >
             {ifscDetails.error ? (
               <div className="text-danger">{ifscDetails.error}</div>
@@ -555,6 +605,16 @@ function App() {
         )}
 
         <style>{`
+          .visually-hidden { 
+            border: 0; 
+            clip: rect(0 0 0 0); 
+            height: 1px; 
+            margin: -1px; 
+            overflow: hidden; 
+            padding: 0; 
+            position: absolute; 
+            width: 1px; 
+          }
           .ifsc-details-card {
             width: 100%;
             background: #ffffffd9;
